@@ -1,9 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>活動報名冊</title>
+
 <style>
   :root{
     --paper: #f7f4ec;
@@ -92,7 +93,7 @@
     margin-bottom: 4px;
   }
 
-  input[type=text], input[type=date], textarea{
+  input[type=text], input[type=date], input[type=time], textarea{
     width:100%;
     font-family: inherit;
     font-size: 15px;
@@ -105,7 +106,7 @@
     outline: none;
     resize: vertical;
   }
-  input[type=text]:focus, input[type=date]:focus, textarea:focus{
+  input[type=text]:focus, input[type=date]:focus, input[type=time]:focus, textarea:focus{
     border-bottom: 1px solid var(--margin-red);
   }
   textarea{ min-height: 60px; }
@@ -136,10 +137,9 @@
     color: #fdf9ee;
   }
   button:hover{ opacity: .82; }
+  button:disabled{ opacity: .4; cursor: not-allowed; }
 
-  .event-display{
-    display:none;
-  }
+  .event-display{ display:none; }
   .event-display.show{ display:block; }
   .event-display h2{
     font-size: 26px;
@@ -150,12 +150,12 @@
     font-family: "Courier New", monospace;
     font-size: 13px;
     color: var(--margin-red);
-    margin-bottom: 14px;
+    margin-bottom: 6px;
   }
   .event-display .content{
     white-space: pre-wrap;
     line-height: 1.75;
-    margin-bottom: 12px;
+    margin: 12px 0;
     font-size: 15px;
   }
   .event-display .notes{
@@ -174,6 +174,7 @@
     text-decoration: underline;
     padding: 0;
     margin-top: 14px;
+    cursor:pointer;
   }
 
   .roster h2{
@@ -198,10 +199,7 @@
   .signup-form .field{ flex: 1 1 140px; margin-bottom: 0; }
   .signup-form input{ margin-bottom: 0; }
 
-  ul.roster-list{
-    list-style: none;
-    margin: 0; padding: 0;
-  }
+  ul.roster-list{ list-style: none; margin: 0; padding: 0; }
   ul.roster-list li{
     display: flex;
     align-items: baseline;
@@ -216,15 +214,8 @@
     width: 26px;
     flex-shrink:0;
   }
-  ul.roster-list .who{
-    font-weight: 600;
-    flex-shrink: 0;
-  }
-  ul.roster-list .note{
-    color: var(--ink-soft);
-    font-size: 13px;
-    flex: 1;
-  }
+  ul.roster-list .who{ font-weight: 600; flex-shrink: 0; }
+  ul.roster-list .note{ color: var(--ink-soft); font-size: 13px; flex: 1; }
   ul.roster-list .remove{
     font-family: "Courier New", monospace;
     font-size: 11px;
@@ -252,6 +243,25 @@
     min-height: 14px;
   }
 
+  .config-warning{
+    background: #fbeceb;
+    border: 1px solid var(--margin-red);
+    color: var(--margin-red);
+    font-family: "Courier New", monospace;
+    font-size: 12px;
+    padding: 14px 16px;
+    border-radius: 2px;
+    margin-bottom: 24px;
+    line-height: 1.7;
+    display: none;
+  }
+  .config-warning.show{ display: block; }
+  .config-warning code{
+    background: rgba(0,0,0,.06);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+
   @media (max-width: 480px){
     .sheet{ padding-left: 30px; }
     .sheet::before{ left: 18px; }
@@ -266,6 +276,11 @@
   <div class="masthead">
     <h1>報　名　冊</h1>
     <span class="tag">SIGN-UP SHEET</span>
+  </div>
+
+  <div class="config-warning" id="configWarning">
+    ⚠ 尚未設定 Google Apps Script：請在原始碼底部把 <code>GAS_URL</code> 換成你部署好的 Apps Script 網址，
+    否則報名清單無法跨裝置共用。詳見與此檔案一起提供的 Code.gs 設定說明。
   </div>
 
   <!-- 活動資訊：編輯表單 -->
@@ -338,8 +353,36 @@
 </div>
 
 <script>
-const EVENT_KEY = 'event-info';
-const ROSTER_KEY = 'registrants';
+/* =========================================================
+   Google Apps Script 設定
+   請依照 Code.gs 裡的說明部署 Web App，然後把取得的網址貼在這裡。
+   例如：https://script.google.com/macros/s/AKfycb.../exec
+   ========================================================= */
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwfdWE1i9SnxAxc_RXBU3DhyKI9SAkRF6s2jBLsA3jjFi3JQq8oV7ufH4VE_rG779SL/exec";
+
+const isConfigured = GAS_URL && GAS_URL !== "YOUR_APPS_SCRIPT_WEB_APP_URL";
+if(!isConfigured){
+  document.getElementById('configWarning').classList.add('show');
+}
+
+let currentRoster = [];
+let currentEventTitle = '活動報名';
+
+async function gasGet(action){
+  const res = await fetch(`${GAS_URL}?action=${action}`);
+  if(!res.ok) throw new Error('網路請求失敗 (' + res.status + ')');
+  return res.json();
+}
+
+async function gasPost(action, data){
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // 用 text/plain 避免觸發 CORS 預檢請求
+    body: JSON.stringify({ action, data })
+  });
+  if(!res.ok) throw new Error('網路請求失敗 (' + res.status + ')');
+  return res.json();
+}
 
 function setStatus(id, msg){
   const el = document.getElementById(id);
@@ -360,29 +403,6 @@ function fmtMeet(time, place){
   return parts.join('　|　');
 }
 
-async function loadEvent(){
-  try{
-    const res = await window.storage.get(EVENT_KEY, true);
-    if(res && res.value){
-      const info = JSON.parse(res.value);
-      document.getElementById('dTitle').textContent = info.title || '(未命名活動)';
-      document.getElementById('dDate').textContent = fmtDate(info.date);
-      document.getElementById('dMeet').textContent = fmtMeet(info.meetTime, info.meetPlace);
-      document.getElementById('dContent').textContent = info.content || '';
-      document.getElementById('dNotes').textContent = info.notes ? ('備註：' + info.notes) : '';
-      document.getElementById('fTitle').value = info.title || '';
-      document.getElementById('fDate').value = info.date || '';
-      document.getElementById('fMeetTime').value = info.meetTime || '';
-      document.getElementById('fMeetPlace').value = info.meetPlace || '';
-      document.getElementById('fContent').value = info.content || '';
-      document.getElementById('fNotes').value = info.notes || '';
-      showDisplay();
-    }
-  }catch(e){
-    // 尚無資料，維持表單顯示
-  }
-}
-
 function showForm(){
   document.getElementById('eventForm').style.display = 'block';
   document.getElementById('eventDisplay').classList.remove('show');
@@ -392,7 +412,36 @@ function showDisplay(){
   document.getElementById('eventDisplay').classList.add('show');
 }
 
+function applyEventInfo(info){
+  currentEventTitle = info.title || '活動報名';
+  document.getElementById('dTitle').textContent = info.title || '(未命名活動)';
+  document.getElementById('dDate').textContent = fmtDate(info.date);
+  document.getElementById('dMeet').textContent = fmtMeet(info.meetTime, info.meetPlace);
+  document.getElementById('dContent').textContent = info.content || '';
+  document.getElementById('dNotes').textContent = info.notes ? ('備註：' + info.notes) : '';
+  document.getElementById('fTitle').value = info.title || '';
+  document.getElementById('fDate').value = info.date || '';
+  document.getElementById('fMeetTime').value = info.meetTime || '';
+  document.getElementById('fMeetPlace').value = info.meetPlace || '';
+  document.getElementById('fContent').value = info.content || '';
+  document.getElementById('fNotes').value = info.notes || '';
+}
+
+async function loadEvent(){
+  if(!isConfigured) return;
+  try{
+    const info = await gasGet('getEvent');
+    if(info && info.title){
+      applyEventInfo(info);
+      showDisplay();
+    }
+  }catch(e){
+    setStatus('eventStatus', '讀取失敗：' + e.message);
+  }
+}
+
 async function saveEvent(){
+  if(!isConfigured){ setStatus('eventStatus', '尚未設定 Google Apps Script'); return; }
   const info = {
     title: document.getElementById('fTitle').value.trim(),
     date: document.getElementById('fDate').value,
@@ -406,34 +455,17 @@ async function saveEvent(){
     return;
   }
   try{
-    const result = await window.storage.set(EVENT_KEY, JSON.stringify(info), true);
-    if(result){
-      setStatus('eventStatus', '已儲存');
-      document.getElementById('dTitle').textContent = info.title;
-      document.getElementById('dDate').textContent = fmtDate(info.date);
-      document.getElementById('dMeet').textContent = fmtMeet(info.meetTime, info.meetPlace);
-      document.getElementById('dContent').textContent = info.content;
-      document.getElementById('dNotes').textContent = info.notes ? ('備註：' + info.notes) : '';
-      showDisplay();
-    } else {
-      setStatus('eventStatus', '儲存失敗，請再試一次');
-    }
+    await gasPost('saveEvent', info);
+    applyEventInfo(info);
+    setStatus('eventStatus', '已儲存');
+    showDisplay();
   }catch(e){
     setStatus('eventStatus', '儲存失敗：' + e.message);
   }
 }
 
-async function loadRoster(){
-  try{
-    const res = await window.storage.get(ROSTER_KEY, true);
-    const list = res && res.value ? JSON.parse(res.value) : [];
-    renderRoster(list);
-  }catch(e){
-    renderRoster([]);
-  }
-}
-
 function renderRoster(list){
+  currentRoster = list;
   const ul = document.getElementById('rosterList');
   const empty = document.getElementById('emptyMsg');
   document.getElementById('rosterCount').textContent = list.length + ' 人';
@@ -458,7 +490,18 @@ function renderRoster(list){
   });
 }
 
+async function loadRoster(){
+  if(!isConfigured) return;
+  try{
+    const list = await gasGet('getRegistrants');
+    renderRoster(list || []);
+  }catch(e){
+    setStatus('rosterStatus', '讀取失敗：' + e.message);
+  }
+}
+
 async function addRegistrant(){
+  if(!isConfigured){ setStatus('rosterStatus', '尚未設定 Google Apps Script'); return; }
   const nameInput = document.getElementById('sName');
   const noteInput = document.getElementById('sNote');
   const name = nameInput.value.trim();
@@ -470,41 +513,23 @@ async function addRegistrant(){
   }
 
   try{
-    let list = [];
-    try{
-      const res = await window.storage.get(ROSTER_KEY, true);
-      list = res && res.value ? JSON.parse(res.value) : [];
-    }catch(e){ list = []; }
-
-    list.push({
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
-      name, note,
-      time: new Date().toISOString()
-    });
-
-    const result = await window.storage.set(ROSTER_KEY, JSON.stringify(list), true);
-    if(result){
-      renderRoster(list);
-      nameInput.value = '';
-      noteInput.value = '';
-      setStatus('rosterStatus', '報名成功');
-    } else {
-      setStatus('rosterStatus', '報名失敗，請再試一次');
-    }
+    await gasPost('addRegistrant', { name, note });
+    nameInput.value = '';
+    noteInput.value = '';
+    setStatus('rosterStatus', '報名成功');
+    await loadRoster();
   }catch(e){
     setStatus('rosterStatus', '報名失敗：' + e.message);
   }
 }
 
 async function removeRegistrant(id){
+  if(!isConfigured) return;
   try{
-    const res = await window.storage.get(ROSTER_KEY, true);
-    let list = res && res.value ? JSON.parse(res.value) : [];
-    list = list.filter(r => r.id !== id);
-    await window.storage.set(ROSTER_KEY, JSON.stringify(list), true);
-    renderRoster(list);
+    await gasPost('deleteRegistrant', { id });
+    await loadRoster();
   }catch(e){
-    setStatus('rosterStatus', '移除失敗');
+    setStatus('rosterStatus', '移除失敗：' + e.message);
   }
 }
 
@@ -516,55 +541,44 @@ function csvEscape(v){
   return s;
 }
 
-async function exportCSV(){
-  try{
-    const res = await window.storage.get(ROSTER_KEY, true);
-    const list = res && res.value ? JSON.parse(res.value) : [];
-    if(list.length === 0){
-      setStatus('rosterStatus', '目前沒有報名資料可匯出');
-      return;
-    }
-
-    let eventTitle = '活動報名';
-    try{
-      const eRes = await window.storage.get(EVENT_KEY, true);
-      if(eRes && eRes.value){
-        const info = JSON.parse(eRes.value);
-        if(info.title) eventTitle = info.title;
-      }
-    }catch(e){ /* 沒有活動資訊就用預設檔名 */ }
-
-    const header = ['編號','姓名','附註','報名時間'];
-    const rows = list.map((r, idx) => [
-      idx + 1,
-      r.name,
-      r.note || '',
-      r.time ? new Date(r.time).toLocaleString('zh-TW') : ''
-    ]);
-
-    const csvContent = [header, ...rows]
-      .map(row => row.map(csvEscape).join(','))
-      .join('\r\n');
-
-    // 加上 BOM 讓 Excel 開啟時中文不會亂碼
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${eventTitle}_報名名單.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    setStatus('rosterStatus', '已匯出 CSV');
-  }catch(e){
-    setStatus('rosterStatus', '匯出失敗：' + e.message);
+function exportCSV(){
+  if(currentRoster.length === 0){
+    setStatus('rosterStatus', '目前沒有報名資料可匯出');
+    return;
   }
+  const header = ['編號','姓名','附註','報名時間'];
+  const rows = currentRoster.map((r, idx) => [
+    idx + 1,
+    r.name,
+    r.note || '',
+    r.time ? new Date(r.time).toLocaleString('zh-TW') : ''
+  ]);
+
+  const csvContent = [header, ...rows]
+    .map(row => row.map(csvEscape).join(','))
+    .join('\r\n');
+
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${currentEventTitle}_報名名單.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  setStatus('rosterStatus', '已匯出 CSV');
 }
 
 loadEvent();
 loadRoster();
+
+// 每 5 秒輪詢一次，讓不同人看到彼此最新的報名狀況（Apps Script 無法像 Firebase 一樣即時推播）
+if(isConfigured){
+  setInterval(loadRoster, 5000);
+  setInterval(loadEvent, 8000);
+}
 </script>
 
 </body>
