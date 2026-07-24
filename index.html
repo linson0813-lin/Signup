@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>活動報名冊</title>
+<style>
+  :root{
+    --paper: #f7f4ec;
+    --paper-line: #e2dbc8;
+    --ink: #1f2a24;
+    --ink-soft: #4a5650;
+    --margin-red: #b5493f;
+    --accent: #4a5650;
+    --gold: #a9822f;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    padding: 40px 20px 80px;
+    background: var(--paper);
+    background-image:
+      linear-gradient(var(--paper-line) 1px, transparent 1px);
+    background-size: 100% 34px;
+    font-family: "Noto Serif TC", "Georgia", serif;
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  .sheet{
+    max-width: 720px;
+    margin: 0 auto;
+    position: relative;
+    padding-left: 46px;
+  }
+
+  .sheet::before{
+    content:"";
+    position: absolute;
+    top:-20px; bottom:-20px; left: 30px;
+    width: 2px;
+    background: var(--margin-red);
+    opacity: .55;
+  }
+
+  .masthead{
+    display:flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 3px double var(--ink);
+    padding-bottom: 10px;
+    margin-bottom: 24px;
+  }
+  .masthead h1{
+    font-size: 22px;
+    letter-spacing: 2px;
+    margin: 0;
+    font-weight: 600;
+  }
+  .masthead .tag{
+    font-family: "Courier New", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 1px;
+  }
+
+  .card{
+    background: rgba(255,255,255,.35);
+    border: 1px solid var(--paper-line);
+    border-radius: 2px;
+    padding: 20px 22px;
+    margin-bottom: 26px;
+  }
+
+  .card h2{
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin: 0 0 14px;
+    font-weight: 600;
+  }
+
+  label{
+    display:block;
+    font-family: "Courier New", monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+  }
+
+  input[type=text], input[type=date], textarea{
+    width:100%;
+    font-family: inherit;
+    font-size: 15px;
+    color: var(--ink);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--paper-line);
+    padding: 6px 2px 8px;
+    margin-bottom: 16px;
+    outline: none;
+    resize: vertical;
+  }
+  input[type=text]:focus, input[type=date]:focus, textarea:focus{
+    border-bottom: 1px solid var(--margin-red);
+  }
+  textarea{ min-height: 60px; }
+
+  .field:last-child input, .field:last-child textarea{ margin-bottom: 0; }
+
+  .save-row{
+    display:flex;
+    justify-content:flex-end;
+    gap: 10px;
+  }
+
+  button{
+    font-family: inherit;
+    font-size: 13px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    border-radius: 2px;
+    padding: 9px 18px;
+    border: 1px solid var(--ink);
+    background: transparent;
+    color: var(--ink);
+    transition: background .15s, color .15s;
+  }
+  button.primary{
+    background: var(--margin-red);
+    border-color: var(--margin-red);
+    color: #fdf9ee;
+  }
+  button:hover{ opacity: .82; }
+
+  .event-display{
+    display:none;
+  }
+  .event-display.show{ display:block; }
+  .event-display h2{
+    font-size: 26px;
+    margin: 0 0 6px;
+    letter-spacing: 1px;
+  }
+  .event-display .meta{
+    font-family: "Courier New", monospace;
+    font-size: 13px;
+    color: var(--margin-red);
+    margin-bottom: 14px;
+  }
+  .event-display .content{
+    white-space: pre-wrap;
+    line-height: 1.75;
+    margin-bottom: 12px;
+    font-size: 15px;
+  }
+  .event-display .notes{
+    font-size: 13px;
+    color: var(--ink-soft);
+    border-top: 1px dashed var(--paper-line);
+    padding-top: 10px;
+    white-space: pre-wrap;
+  }
+  .edit-toggle{
+    font-family: "Courier New", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    background:none;
+    border:none;
+    text-decoration: underline;
+    padding: 0;
+    margin-top: 14px;
+  }
+
+  .roster h2{
+    display:flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .roster h2 .count{
+    color: var(--ink-soft);
+    font-family: "Courier New", monospace;
+    letter-spacing: 0;
+    font-size: 12px;
+  }
+
+  .signup-form{
+    display:flex;
+    gap: 10px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .signup-form .field{ flex: 1 1 140px; margin-bottom: 0; }
+  .signup-form input{ margin-bottom: 0; }
+
+  ul.roster-list{
+    list-style: none;
+    margin: 0; padding: 0;
+  }
+  ul.roster-list li{
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--paper-line);
+  }
+  ul.roster-list .num{
+    font-family: "Courier New", monospace;
+    color: var(--margin-red);
+    font-size: 13px;
+    width: 26px;
+    flex-shrink:0;
+  }
+  ul.roster-list .who{
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  ul.roster-list .note{
+    color: var(--ink-soft);
+    font-size: 13px;
+    flex: 1;
+  }
+  ul.roster-list .remove{
+    font-family: "Courier New", monospace;
+    font-size: 11px;
+    color: var(--paper-line);
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding: 0 4px;
+  }
+  ul.roster-list .remove:hover{ color: var(--margin-red); }
+
+  .empty{
+    color: var(--ink-soft);
+    font-size: 13px;
+    font-style: italic;
+    padding: 10px 0;
+  }
+
+  .status{
+    font-family: "Courier New", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-align: right;
+    margin-top: 4px;
+    min-height: 14px;
+  }
+
+  @media (max-width: 480px){
+    .sheet{ padding-left: 30px; }
+    .sheet::before{ left: 18px; }
+    .signup-form{ flex-direction: column; align-items: stretch; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <div class="masthead">
+    <h1>報　名　冊</h1>
+    <span class="tag">SIGN-UP SHEET</span>
+  </div>
+
+  <!-- 活動資訊：編輯表單 -->
+  <div class="card" id="eventForm">
+    <h2>活動資訊</h2>
+    <div class="field">
+      <label>活動主題</label>
+      <input type="text" id="fTitle" placeholder="例如：社區讀書會第三期">
+    </div>
+    <div class="field">
+      <label>活動日期</label>
+      <input type="date" id="fDate">
+    </div>
+    <div class="field">
+      <label>集合時間</label>
+      <input type="time" id="fMeetTime">
+    </div>
+    <div class="field">
+      <label>集合地點</label>
+      <input type="text" id="fMeetPlace" placeholder="例如：捷運市政府站2號出口">
+    </div>
+    <div class="field">
+      <label>活動內容</label>
+      <textarea id="fContent" placeholder="活動流程、地點、注意事項..."></textarea>
+    </div>
+    <div class="field">
+      <label>備註事項</label>
+      <textarea id="fNotes" placeholder="例如：請自備筆電、限額20人"></textarea>
+    </div>
+    <div class="save-row">
+      <button class="primary" onclick="saveEvent()">儲存活動資訊</button>
+    </div>
+    <div class="status" id="eventStatus"></div>
+  </div>
+
+  <!-- 活動資訊：顯示畫面 -->
+  <div class="card event-display" id="eventDisplay">
+    <h2 id="dTitle"></h2>
+    <div class="meta" id="dDate"></div>
+    <div class="meta" id="dMeet"></div>
+    <div class="content" id="dContent"></div>
+    <div class="notes" id="dNotes"></div>
+    <button class="edit-toggle" onclick="showForm()">編輯活動資訊</button>
+  </div>
+
+  <!-- 報名清單 -->
+  <div class="card roster">
+    <h2><span>報名名單</span><span class="count" id="rosterCount">0 人</span></h2>
+    <div class="save-row" style="margin-bottom:16px;">
+      <button onclick="exportCSV()">匯出 CSV 名單</button>
+    </div>
+
+    <div class="signup-form">
+      <div class="field">
+        <label>姓名</label>
+        <input type="text" id="sName" placeholder="您的姓名">
+      </div>
+      <div class="field">
+        <label>附註</label>
+        <input type="text" id="sNote" placeholder="選填">
+      </div>
+      <button class="primary" onclick="addRegistrant()">我要報名</button>
+    </div>
+
+    <ul class="roster-list" id="rosterList"></ul>
+    <div class="empty" id="emptyMsg" style="display:none;">目前還沒有人報名，成為第一位吧！</div>
+    <div class="status" id="rosterStatus"></div>
+  </div>
+
+</div>
+
+<script>
+const EVENT_KEY = 'event-info';
+const ROSTER_KEY = 'registrants';
+
+function setStatus(id, msg){
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  if(msg) setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, 2500);
+}
+
+function fmtDate(d){
+  if(!d) return '';
+  const [y,m,day] = d.split('-');
+  return `${y}年${m}月${day}日`;
+}
+
+function fmtMeet(time, place){
+  const parts = [];
+  if(time) parts.push('集合時間 ' + time);
+  if(place) parts.push('集合地點 ' + place);
+  return parts.join('　|　');
+}
+
+async function loadEvent(){
+  try{
+    const res = await window.storage.get(EVENT_KEY, true);
+    if(res && res.value){
+      const info = JSON.parse(res.value);
+      document.getElementById('dTitle').textContent = info.title || '(未命名活動)';
+      document.getElementById('dDate').textContent = fmtDate(info.date);
+      document.getElementById('dMeet').textContent = fmtMeet(info.meetTime, info.meetPlace);
+      document.getElementById('dContent').textContent = info.content || '';
+      document.getElementById('dNotes').textContent = info.notes ? ('備註：' + info.notes) : '';
+      document.getElementById('fTitle').value = info.title || '';
+      document.getElementById('fDate').value = info.date || '';
+      document.getElementById('fMeetTime').value = info.meetTime || '';
+      document.getElementById('fMeetPlace').value = info.meetPlace || '';
+      document.getElementById('fContent').value = info.content || '';
+      document.getElementById('fNotes').value = info.notes || '';
+      showDisplay();
+    }
+  }catch(e){
+    // 尚無資料，維持表單顯示
+  }
+}
+
+function showForm(){
+  document.getElementById('eventForm').style.display = 'block';
+  document.getElementById('eventDisplay').classList.remove('show');
+}
+function showDisplay(){
+  document.getElementById('eventForm').style.display = 'none';
+  document.getElementById('eventDisplay').classList.add('show');
+}
+
+async function saveEvent(){
+  const info = {
+    title: document.getElementById('fTitle').value.trim(),
+    date: document.getElementById('fDate').value,
+    meetTime: document.getElementById('fMeetTime').value,
+    meetPlace: document.getElementById('fMeetPlace').value.trim(),
+    content: document.getElementById('fContent').value.trim(),
+    notes: document.getElementById('fNotes').value.trim()
+  };
+  if(!info.title){
+    setStatus('eventStatus', '請至少填寫活動主題');
+    return;
+  }
+  try{
+    const result = await window.storage.set(EVENT_KEY, JSON.stringify(info), true);
+    if(result){
+      setStatus('eventStatus', '已儲存');
+      document.getElementById('dTitle').textContent = info.title;
+      document.getElementById('dDate').textContent = fmtDate(info.date);
+      document.getElementById('dMeet').textContent = fmtMeet(info.meetTime, info.meetPlace);
+      document.getElementById('dContent').textContent = info.content;
+      document.getElementById('dNotes').textContent = info.notes ? ('備註：' + info.notes) : '';
+      showDisplay();
+    } else {
+      setStatus('eventStatus', '儲存失敗，請再試一次');
+    }
+  }catch(e){
+    setStatus('eventStatus', '儲存失敗：' + e.message);
+  }
+}
+
+async function loadRoster(){
+  try{
+    const res = await window.storage.get(ROSTER_KEY, true);
+    const list = res && res.value ? JSON.parse(res.value) : [];
+    renderRoster(list);
+  }catch(e){
+    renderRoster([]);
+  }
+}
+
+function renderRoster(list){
+  const ul = document.getElementById('rosterList');
+  const empty = document.getElementById('emptyMsg');
+  document.getElementById('rosterCount').textContent = list.length + ' 人';
+  ul.innerHTML = '';
+  if(list.length === 0){
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  list.forEach((r, idx) => {
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <span class="num">${String(idx+1).padStart(2,'0')}</span>
+      <span class="who"></span>
+      <span class="note"></span>
+      <button class="remove" title="移除">✕</button>
+    `;
+    li.querySelector('.who').textContent = r.name;
+    li.querySelector('.note').textContent = r.note || '';
+    li.querySelector('.remove').onclick = () => removeRegistrant(r.id);
+    ul.appendChild(li);
+  });
+}
+
+async function addRegistrant(){
+  const nameInput = document.getElementById('sName');
+  const noteInput = document.getElementById('sNote');
+  const name = nameInput.value.trim();
+  const note = noteInput.value.trim();
+
+  if(!name){
+    setStatus('rosterStatus', '請輸入姓名');
+    return;
+  }
+
+  try{
+    let list = [];
+    try{
+      const res = await window.storage.get(ROSTER_KEY, true);
+      list = res && res.value ? JSON.parse(res.value) : [];
+    }catch(e){ list = []; }
+
+    list.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+      name, note,
+      time: new Date().toISOString()
+    });
+
+    const result = await window.storage.set(ROSTER_KEY, JSON.stringify(list), true);
+    if(result){
+      renderRoster(list);
+      nameInput.value = '';
+      noteInput.value = '';
+      setStatus('rosterStatus', '報名成功');
+    } else {
+      setStatus('rosterStatus', '報名失敗，請再試一次');
+    }
+  }catch(e){
+    setStatus('rosterStatus', '報名失敗：' + e.message);
+  }
+}
+
+async function removeRegistrant(id){
+  try{
+    const res = await window.storage.get(ROSTER_KEY, true);
+    let list = res && res.value ? JSON.parse(res.value) : [];
+    list = list.filter(r => r.id !== id);
+    await window.storage.set(ROSTER_KEY, JSON.stringify(list), true);
+    renderRoster(list);
+  }catch(e){
+    setStatus('rosterStatus', '移除失敗');
+  }
+}
+
+function csvEscape(v){
+  const s = (v ?? '').toString();
+  if(/[",\n]/.test(s)){
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+async function exportCSV(){
+  try{
+    const res = await window.storage.get(ROSTER_KEY, true);
+    const list = res && res.value ? JSON.parse(res.value) : [];
+    if(list.length === 0){
+      setStatus('rosterStatus', '目前沒有報名資料可匯出');
+      return;
+    }
+
+    let eventTitle = '活動報名';
+    try{
+      const eRes = await window.storage.get(EVENT_KEY, true);
+      if(eRes && eRes.value){
+        const info = JSON.parse(eRes.value);
+        if(info.title) eventTitle = info.title;
+      }
+    }catch(e){ /* 沒有活動資訊就用預設檔名 */ }
+
+    const header = ['編號','姓名','附註','報名時間'];
+    const rows = list.map((r, idx) => [
+      idx + 1,
+      r.name,
+      r.note || '',
+      r.time ? new Date(r.time).toLocaleString('zh-TW') : ''
+    ]);
+
+    const csvContent = [header, ...rows]
+      .map(row => row.map(csvEscape).join(','))
+      .join('\r\n');
+
+    // 加上 BOM 讓 Excel 開啟時中文不會亂碼
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${eventTitle}_報名名單.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    setStatus('rosterStatus', '已匯出 CSV');
+  }catch(e){
+    setStatus('rosterStatus', '匯出失敗：' + e.message);
+  }
+}
+
+loadEvent();
+loadRoster();
+</script>
+
+</body>
+</html>
